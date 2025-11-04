@@ -1,73 +1,68 @@
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrHI6Zp7tTkI8VKalbIG8rINhES9dxBQr591q6ZKJD1skbiHLoYsGv8dY96WZMawqJsQ/exec";
+// === CONFIGURAÇÕES DO SITE ===
+const API_URL = "https://script.google.com/macros/s/AKfycbzrHI6Zp7tTkI8VKalbIG8rINhES9dxBQr591q6ZKJD1skbiHLoYsGv8dY96WZMawqJsQ/exec";
+const SENHA = "Retiro2025";
 
-async function fetchRemote(){
-  try{
-    const res = await fetch(APPS_SCRIPT_URL);
-    if(!res.ok) throw new Error('erro');
-    const data = await res.json();
-    return data;
-  }catch(e){
-    console.warn('Não foi possível ler da planilha:', e);
-    return [];
+// === FUNÇÃO PARA BUSCAR CRIANÇAS ===
+async function carregarCrianças() {
+  try {
+    const resposta = await fetch(API_URL);
+    const dados = await resposta.json();
+    const lista = document.getElementById("listaCrianças");
+    lista.innerHTML = "";
+
+    dados.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    dados.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "cartao";
+
+      card.innerHTML = `
+        <img src="${c.foto || 'https://via.placeholder.com/150'}" alt="Foto de ${c.nome}">
+        <div class="info">
+          <h3>${c.nome}</h3>
+          <p><b>Idade:</b> ${c.idade || ''}</p>
+          <p><b>Nascimento:</b> ${c.dataNascimento || ''} às ${c.hora || ''}</p>
+          <p><b>TEFA:</b> ${c.tefa || ''}</p>
+          <p><b>Pais:</b> ${c.pais || ''}</p>
+          <p><b>Local:</b> ${c.local || ''}</p>
+        </div>
+      `;
+      lista.appendChild(card);
+    });
+  } catch (erro) {
+    console.error("Erro ao carregar dados:", erro);
   }
 }
 
-function calcularIdade(dataStr){
-  if(!dataStr) return '';
-  const bd = new Date(dataStr);
-  const now = new Date();
-  let years = now.getFullYear() - bd.getFullYear();
-  const m = now.getMonth() - bd.getMonth();
-  if(m < 0 || (m===0 && now.getDate() < bd.getDate())) years--;
-  return years;
-}
-
-async function loadData(){
-  const remote = await fetchRemote();
-  const local = JSON.parse(localStorage.getItem('criancas_ret_racional_entries') || '[]');
-  const normalized = (remote || []).map(r=>{
-    return {
-      nome_completo: r.nome_completo || r[0] || '',
-      data_nascimento: r.data_nascimento || r[1] || '',
-      hora_nascimento: r.hora_nascimento || r[2] || '',
-      idade: r.idade || r[3] || '',
-      tefa: r.tefa || r[4] || '',
-      pais: r.pais || r[5] || '',
-      cidade_estado: r.cidade_estado || r[6] || '',
-      pais_nome: r.pais_nome || r[7] || '',
-      foto: r.foto_url || r.foto || ''
-    };
+// === BUSCA ===
+function buscarPorNome() {
+  const termo = document.getElementById("busca").value.toLowerCase();
+  const cartoes = document.querySelectorAll(".cartao");
+  cartoes.forEach(card => {
+    const nome = card.querySelector("h3").textContent.toLowerCase();
+    card.style.display = nome.includes(termo) ? "block" : "none";
   });
-  const data = normalized.concat(local);
-  render(data);
 }
 
-function render(data){
-  const q = document.getElementById('search').value.toLowerCase().trim();
-  const container = document.getElementById('cards');
-  container.innerHTML = '';
-  const list = data.filter(d => (d.nome_completo || '').toLowerCase().includes(q));
-  list.sort((a,b)=> (a.nome_completo||'').localeCompare(b.nome_completo||''));
-  for(const d of list){
-    const div = document.createElement('div');
-    div.className = 'card';
-    const img = d.foto || d.foto_url || 'https://via.placeholder.com/150x150.png?text=Foto';
-    div.innerHTML = `
-      <img src="${img}" alt="${d.nome_completo || ''}" />
-      <div class="info">
-        <div class="name">${d.nome_completo || ''}</div>
-        <div class="meta">Idade: ${calcularIdade(d.data_nascimento) || d.idade || ''} • Nasc: ${d.data_nascimento || '-'} ${d.hora_nascimento ? 'às ' + d.hora_nascimento : ''}</div>
-        <div class="meta">Pais: ${d.pais || '-'} • ${d.cidade_estado || ''}</div>
-      </div>
-    `;
-    container.appendChild(div);
+// === CADASTRO ===
+async function salvarCadastro(event) {
+  event.preventDefault();
+  const senha = prompt("Digite a senha para salvar:");
+  if (senha !== SENHA) {
+    alert("Senha incorreta.");
+    return;
   }
+
+  const form = event.target;
+  const dados = new FormData(form);
+
+  const resposta = await fetch(API_URL, { method: "POST", body: dados });
+  const texto = await resposta.text();
+
+  alert("Cadastro salvo com sucesso!");
+  form.reset();
+  carregarCrianças();
 }
 
-document.getElementById('search').addEventListener('input', ()=> loadData());
-document.getElementById('cadBtn').addEventListener('click', ()=> {
-  window.location.href = 'cadastro.html';
-});
-
-// initial load
-loadData();
+// === INICIALIZAÇÃO ===
+document.addEventListener("DOMContentLoaded", carregarCrianças);
