@@ -1,68 +1,95 @@
-// === CONFIGURAÇÕES DO SITE ===
-const API_URL = "https://script.google.com/macros/s/AKfycbzrHI6Zp7tTkI8VKalbIG8rINhES9dxBQr591q6ZKJD1skbiHLoYsGv8dY96WZMawqJsQ/exec";
-const SENHA = "Retiro2025";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrHI6Zp7tTkI8VKalbIG8rINhES9dxBQr591q6ZKJD1skbiHLoYsGv8dY96WZMawqJsQ/exec";
+const LOCAL_KEY = 'criancas_ret_racional_entries';
 
-// === FUNÇÃO PARA BUSCAR CRIANÇAS ===
-async function carregarCrianças() {
-  try {
-    const resposta = await fetch(API_URL);
-    const dados = await resposta.json();
-    const lista = document.getElementById("listaCrianças");
-    lista.innerHTML = "";
-
-    dados.sort((a, b) => a.nome.localeCompare(b.nome));
-
-    dados.forEach(c => {
-      const card = document.createElement("div");
-      card.className = "cartao";
-
-      card.innerHTML = `
-        <img src="${c.foto || 'https://via.placeholder.com/150'}" alt="Foto de ${c.nome}">
-        <div class="info">
-          <h3>${c.nome}</h3>
-          <p><b>Idade:</b> ${c.idade || ''}</p>
-          <p><b>Nascimento:</b> ${c.dataNascimento || ''} às ${c.hora || ''}</p>
-          <p><b>TEFA:</b> ${c.tefa || ''}</p>
-          <p><b>Pais:</b> ${c.pais || ''}</p>
-          <p><b>Local:</b> ${c.local || ''}</p>
-        </div>
-      `;
-      lista.appendChild(card);
-    });
-  } catch (erro) {
-    console.error("Erro ao carregar dados:", erro);
+// pede os dados da planilha (GET)
+async function fetchRemote(){
+  try{
+    const res = await fetch(APPS_SCRIPT_URL);
+    if(!res.ok) throw new Error('Erro fetch');
+    const data = await res.json();
+    return data;
+  }catch(e){
+    console.warn('Não foi possível ler da planilha:', e);
+    return [];
   }
 }
 
-// === BUSCA ===
-function buscarPorNome() {
-  const termo = document.getElementById("busca").value.toLowerCase();
-  const cartoes = document.querySelectorAll(".cartao");
-  cartoes.forEach(card => {
-    const nome = card.querySelector("h3").textContent.toLowerCase();
-    card.style.display = nome.includes(termo) ? "block" : "none";
+function calcularIdade(dataStr){
+  if(!dataStr) return '';
+  const bd = new Date(dataStr);
+  const now = new Date();
+  let years = now.getFullYear() - bd.getFullYear();
+  const m = now.getMonth() - bd.getMonth();
+  if(m < 0 || (m===0 && now.getDate() < bd.getDate())) years--;
+  return years;
+}
+
+async function loadData(){
+  const remote = await fetchRemote();
+  const local = JSON.parse(localStorage.getItem(LOCAL_KEY) || '[]');
+
+  // normaliza remote (pode ser array de objetos com headers)
+  const normalized = (remote || []).map(r=>{
+    // quando o Apps Script retorna objetos, usar as keys; se retornar arrays, fallback
+    return {
+      nome_completo: r.nome_completo || r[0] || '',
+      data_nascimento: r.data_nascimento || r[1] || '',
+      hora_nascimento: r.hora_nascimento || r[2] || '',
+      idade: r.idade || r[3] || '',
+      tefa: r.tefa || r[4] || '',
+      pais: r.pais || r[5] || '',
+      cidade_estado: r.cidade_estado || r[6] || '',
+      pais_nome: r.pais_nome || r[7] || '',
+      foto_url: r.foto_url || r[8] || r.foto || ''
+    };
   });
+
+  // concatenar: primeiro os remotos (oficiais), depois os locais (pendentes)
+  const data = normalized.concat(local);
+  render(data);
 }
 
-// === CADASTRO ===
-async function salvarCadastro(event) {
-  event.preventDefault();
-  const senha = prompt("Digite a senha para salvar:");
-  if (senha !== SENHA) {
-    alert("Senha incorreta.");
-    return;
+function render(data){
+  const q = document.getElementById('search') ? document.getElementById('search').value.toLowerCase().trim() : '';
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  const list = data.filter(d => (d.nome_completo || '').toLowerCase().includes(q));
+  list.sort((a,b)=> (a.nome_completo||'').localeCompare(b.nome_completo||''));
+  if(list.length === 0){
+    document.getElementById('empty').style.display = 'block';
+  } else {
+    document.getElementById('empty').style.display = 'none';
+  }
+  for(const d of list){
+    const div = document.createElement('div');
+    div.className = 'card';
+    const img = d.foto_url || d.foto || d.fotoUrl || 'https://via.placeholder.com/150x150.png?text=Foto';
+    div.innerHTML = `
+      <img src="${img}" alt="${(d.nome_completo||'')}" />
+      <div class="info">
+        <div class="name">${d.nome_completo || ''}</div>
+        <div class="meta">Idade: ${calcularIdade(d.data_nascimento) || d.idade || ''} • Nasc: ${d.data_nascimento || '-'} ${d.hora_nascimento ? 'às ' + d.hora_nascimento : ''}</div>
+        <div class="meta">Pais: ${d.pais || '-'} • ${d.cidade_estado || ''}</div>
+      </div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+// eventos
+document.addEventListener('DOMContentLoaded', ()=> {
+  // load initial
+  loadData();
+
+  const search = document.getElementById('search');
+  if(search){
+    search.addEventListener('input', ()=> loadData());
   }
 
-  const form = event.target;
-  const dados = new FormData(form);
-
-  const resposta = await fetch(API_URL, { method: "POST", body: dados });
-  const texto = await resposta.text();
-
-  alert("Cadastro salvo com sucesso!");
-  form.reset();
-  carregarCrianças();
-}
-
-// === INICIALIZAÇÃO ===
-document.addEventListener("DOMContentLoaded", carregarCrianças); 
+  const cadBtn = document.getElementById('cadBtn');
+  if(cadBtn){
+    cadBtn.addEventListener('click', ()=> {
+      window.location.href = 'cadastro.html';
+    });
+  }
+});
