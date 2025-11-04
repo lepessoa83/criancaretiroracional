@@ -1,20 +1,16 @@
-Cadastro Crianças — pacote pronto for GitHub Pages
-
-Files included:
+Arquivo gerados para publicar no GitHub Pages:
 - index.html
-- cadastro.html (password: Retiro2025)
-- style.css
+- cadastro.html
+- estilo.css
 - script.js
-- cadastros.csv (63 entries)
 
-Your Apps Script endpoint (already deployed):
+Instruções rápidas:
+1) Substitua esses arquivos no seu repositório (apagar versões antigas se necessário).
+2) Certifique-se de que os nomes dos arquivos no repo estão exatamente: index.html, cadastro.html, estilo.css, script.js
+3) Em Settings > Pages: Source -> main (branch) / (root). Save.
+4) Aguarde ~1-3 minutos e acesse: https://<seu-usuario>.github.io/<reponame>/
+
+Apps Script endpoint utilizado:
 https://script.google.com/macros/s/AKfycbzrHI6Zp7tTkI8VKalbIG8rINhES9dxBQr591q6ZKJD1skbiHLoYsGv8dY96WZMawqJsQ/exec
 
-How to publish:
-1. Create a GitHub repo and upload files.
-2. Enable Pages on the repository.
-3. Visit the site.
-
-Test:
-- Open cadastro.html, enter password Retiro2025, create a record with photo from device.
-- It will POST to your Apps Script and also save locally if offline.
+Senha para editar/cadastrar: Retiro2025
