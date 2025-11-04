@@ -65,4 +65,4 @@ async function salvarCadastro(event) {
 }
 
 // === INICIALIZAÇÃO ===
-document.addEventListener("DOMContentLoaded", carregarCrianças);
+document.addEventListener("DOMContentLoaded", carregarCrianças); 
